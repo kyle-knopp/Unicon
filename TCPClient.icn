@@ -1,0 +1,22 @@
+#tcpclient
+
+procedure main(args)
+     local msg := ""
+     server := args[1] | "localhost:1888"
+     sock := open(server, "n", 5000) | stop("open(",server,") ERROR: ", &errortext)
+     flist := [&input, sock]
+     repeat {
+        L := select(flist)
+        every f := !L  do
+           case f of {
+              sock :  {
+                 write("server says:", ready(f))
+                 if msg == "goodbye" then break
+                    }
+              &input :
+                 if msg := ready(f) then
+                    writes(sock, msg)  | stop(&errortext)
+              } # case
+        }
+     close(sock)
+end
