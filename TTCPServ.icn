@@ -29,9 +29,11 @@ class TCPSession(sock)
 					e:=handle_error("400")
 					write(e)
 				}
-			#write(image(H))	
-			 writes(sock,L)
-			 #writes(sock,ximage(H))
+			write("*!****!******!")
+			write(ximage(L))
+			write("*!****!******!")
+			write("\nEnd of Transmission\n\n\n")
+			 writes(sock,L) #L is a list, expects a String
 #--------------------------------------------------------------END TESTING-------------------------------------------------------
                #writes(sock, image(msg))                     # send back to the client
                }
@@ -111,9 +113,15 @@ procedure parse_request(r)
 
    if r ?{
       request_line := tab(find("\r\n"))
+	  write("*#*#*#*#*#*#*#*#*#*")
+	  write(request_line)
+	  write("*#*#*#*#*#*#*#*#*#*")
       #write("inside string scan, request_line:",request_line)                          #debugging
 	  move(2)
       line := tab(find("\r\n"))
+	  write("*$*$*$*$*$*$*$*$*$*")
+	  write(line)
+	  write("*$*$*$*$*$*$*$*$*$*")
 	  #write("inside string scan, header_field:",line)                          #debugging
       while line ~== "" do {
          put(header_fields, line)
@@ -124,13 +132,14 @@ procedure parse_request(r)
       body := tab(0) 
 
 	l:=list()
+	testStr := ""
 	put(l,request_line)
 	put(l,header_fields)
 	put(l,body)
 	write("-------------------------------------------------------------------------------------")
 	}then {
-		p:=parse_request_line(l[1])
-		h:=handle_request(p)
+		p:=parse_request_line(l[1]) # p is a list
+		h:=handle_request(p) # h is a list
 		return h
 	}
 	return handle_status_codes("400")
@@ -185,16 +194,18 @@ end
 
 #Passes request_line_list (r) such as that from parse_request_line returns file information using stat()
 procedure handle_HEAD(r)
+	write("*@*@*@*@*@*")
 	file_name:=r[2]
-	response:=[]
-	if f:=file_info(file_name)then{
-		put(response,r[3],handle_status_codes("200"))
-		put(response,&date ,&clock)
-		every put(response,!f)
-		return response
-	}
-		
-	return handle_status_codes("404")
+	write(file_name)
+	write("*@*@*@*@*@*")
+	response:=[] # want response to be a string not a list
+	StrResponse := ""
+	st := stat(file_name) | return handle_status_codes("404")
+		StrResponse := StrResponse || r[3]||" "||handle_status_codes("200")||"\r\nDate:"||&date||" "||&clock||"\r\nServer: Unicon Server"||"\r\nLast-Modified: "||ctime(st.mtime)||"\r\nETag: \""||hash(st.mtime)||"\"\r\nVary: Authorization,Accept\r\nAccept-Ranges: bytes\r\nContent-Length: "||st.size||"\r\nContent-Type: "||get_MIME(file_type)||"\r\nConnection: keep-alive"
+		write("***********")
+		write(StrResponse)
+		write("***********")
+		return StrResponse
 		
 end
 
@@ -249,7 +260,7 @@ procedure handle_GET(r)
 	#-------------------------------------------------------------------------------------------------------------------------------------------------
 	
 	t:=t||"\r\n\r\n"||data
-	
+	#Prints the img binary
 	#write("T")
 	#write(t)
 	
@@ -264,25 +275,6 @@ procedure handle_status_codes(s)
 		"400" : return "400 Bad Request"
 		"404" : return "404 Not Found"
 		}
-end
-
-procedure file_info(file)
-	# Retrieves the information about a file
-	local size, time, lastMod
-	fields := []	
-	if st := stat(file) then{
-		size := st.size
-		put(fields, size)
-		time := ctime(st.ctime)
-		put(fields, time)
-		lastMod := ctime(st.mtime)
-		put(fields, lastMod)
-		
-		return fields
-	}
-	return handle_status_codes("404")
-	
-	
 end
 
 procedure hash(s)
