@@ -15,15 +15,7 @@ class TCPSession(sock)
 			 if msg == "" then next 
 			 if /msg then next
 			 if L:=parse_request(msg) then{								
-				#if R:=parse_request_line(L[1]) then{
-				#	H:=handle_request(R)
-					#write(ximage(H))
-				#	}
-				#	else{
-				#		e:=handle_error("404")
-				#		write(e)
-						
-				#	}
+
 				}
 				else{ 
 					e:=handle_error("400")
@@ -139,7 +131,7 @@ procedure parse_request(r)
 	write("-------------------------------------------------------------------------------------")
 	}then {
 		p:=parse_request_line(l[1]) # p is a list
-		h:=handle_request(p) # h is a list
+		h:=handle_request(p,header_fields) # h is a list
 		return h
 	}
 	return handle_status_codes("400")
@@ -182,18 +174,19 @@ procedure parse_body(bf)
 
 end
 
-procedure handle_request(r)
+procedure handle_request(r,hf)
 
 	case r[1] of{
-		"HEAD" : return handle_HEAD(r)
-		"GET" : return handle_GET(r)
+		"HEAD" : return handle_HEAD(r,hf)
+		"GET" : return handle_GET(r,hf)
+		"DELETE" : return handle_DELETE(r,hf)
 		default: return handle_status_codes("400")
 	}
 end
 
 
 #Passes request_line_list (r) such as that from parse_request_line returns file information using stat()
-procedure handle_HEAD(r)
+procedure handle_HEAD(r,hf)
 	write("*@*@*@*@*@*")
 	file_name:=r[2]
 	write(file_name)
@@ -209,8 +202,9 @@ procedure handle_HEAD(r)
 		
 end
 
-procedure handle_GET(r)
+procedure handle_GET(r,hf)
 	write("THIS IS MY TEST"||r[2])
+	if /r[2] then return handle_status_codes(400)
 	if r[2]=="" then{
 		filename:="index.html"
 		#filename:="helloworld.jpg"
@@ -268,12 +262,56 @@ procedure handle_GET(r)
 		
 end
 
+procedure handle_DELETE(r,hf)
+	if r[2]==""|/r[2] then{
+		return handle_status_codes(400)
+	}else{
+		filename:=r[2]
+	}
+	
+	remove(filename)
+end
 
 procedure handle_status_codes(s)
 	case s of{
-		"200" : return "200 Good"
+		#	Informational 1xx
+		"100" : return "100 Continue"
+		"101" : return "101 Switching Protocols"
+
+		#	Successful 2xx
+		"200" : return "200 OK"
+		"201" : return "201 Created"
+		"202" : return "202 Accepted"
+		"203" : return "203 Non-Authoritative Information"
+		"204" : return "204 No Content"
+		"205" : return "205 Reset Content"
+
+		#	Redirection 3xx
+		"300" : return "300 Multiple Choices"
+		"301" : return "301 Moved Permanently" 
+		"302" : return "302 Found"
+		"303" : return "303 See Other"
+		"305" : return "305 Use Proxy"
+				   
+		#	Client Error 4xx
 		"400" : return "400 Bad Request"
+		"402" : return "402 Payment Required"
+		"403" : return "403 Forbidden"
 		"404" : return "404 Not Found"
+		"405" : return "405 Method Not Allowed"
+		"406" : return "406 Not Acceptable"
+		"408" : return "408 Request Timeout"
+		"409" : return "409 Conflict"
+				   
+		#	Server Error 5xx
+		"500" : return "500 Internal Server Error"
+		"501" : return "501 Not Implemented"
+		"502" : return "502 Bad Gateway"
+		"503" : return "503 Service Unavailable"
+		"504" : return "504 Gateway Timeout"
+		"505" : return "505 HTTP Version Not Supported"
+
+		
 		}
 end
 
