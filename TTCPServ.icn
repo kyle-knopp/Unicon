@@ -115,6 +115,7 @@ procedure parse_request(r)
 	  write(line)
 	  write("*$*$*$*$*$*$*$*$*$*")
 	  #write("inside string scan, header_field:",line)                          #debugging
+      if /line then return handle_status_codes("400")
       while line ~== "" do {
          put(header_fields, line)
          move(2)
