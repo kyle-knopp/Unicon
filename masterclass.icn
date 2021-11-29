@@ -15,8 +15,6 @@ class TCPSession(sock)
 			 if msg == "" then next 
 			 if /msg then next
 			 req:=Request(msg)
-			 req.parse_request(msg)
-
 			 
 			req_resp:=Request_Response(req) 
 			
@@ -98,12 +96,13 @@ class Request(
     form,
     request_target,
     http_version,
-    status
+    status,
+	response
     )
     method parse_request(msg)
         if /msg then {
-            status:=status_code.handle_status_codes("400")
-            return status
+            status:=handle_status("400")
+            return status.message
         }
 		
 
@@ -112,7 +111,10 @@ class Request(
           request_line := tab(find("\r\n"))
           move(2)
           line := tab(find("\r\n"))
-          if /line then return handle_status_codes("400")
+          if /line then {
+			s:=handle_status("400")
+			return s.message
+			}
           while line ~== "" do {
              put(header_fields, line)
              move(2)
@@ -126,8 +128,8 @@ class Request(
             return
         }
 		status:="400"
-        #status:=status_code.handle_status_codes("400")
-		write(status)
+        response:=handle_status(status)
+		return response.message
     end
     
     method parse_request_line(request_line)
@@ -159,57 +161,63 @@ class Request(
         msg:=message
         header_fields:=[]
 		status:="200"
+		parse_request(msg)
 end
-class status_code(code, code_message, T)
-    
-    method handle_status_code(code)
-        static T := table()
+class handle_status(code,
+	message
+	)
+	
+    method handle_status_code(code
+	)
         
-        #   Informational 1xx
-        T["100"] := "100 Continue"
-        T["101"] := "101 Switching Protocols"
-        #   Successful 2xx
-        T["200"] := "200 OK"
-        T["201"] := "201 Created"
-        T["202"] := "202 Accepted"
-        T["203"] := "203 Non-Authoritative Information"
-        T["204"] := "204 No Content"
-        T["205"] := "205 Reset Content"
-        #   Redirection 3xx
-        T["300"] := "300 Multiple Choices"
-        T["301"] := "301 Moved Permanently" 
-        T["302"] := "302 Found"
-        T["303"] := "303 See Other"
-        T["305"] := "305 Use Proxy"
-                       
-        #   Client Error 4xx
-        T["400"] := "400 Bad Request"
-        T["402"] := "402 Payment Required"
-        T["403"] := "403 Forbidden"
-        T["404"] := "404 Not Found"
-        T["405"] := "405 Method Not Allowed"
-        T["406"] := "406 Not Acceptable"
-        T["408"] := "408 Request Timeout"
-        T["409"] := "409 Conflict"
-                       
-        #   Server Error 5xx
-        T["500"] := "500 Internal Server Error"
-        T["501"] := "501 Not Implemented"
-        T["502"] := "502 Bad Gateway"
-        T["503"] := "503 Service Unavailable"
-        T["504"] := "504 Gateway Timeout"
-        T["505"] := "505 HTTP Version Not Supported"
-        
-        
-        
-        
-        return code_message:=T[code]
+        case code of{
+		#	Informational 1xx
+		"100" : return "100 Continue"
+		"101" : return "101 Switching Protocols"
+
+		#	Successful 2xx
+		"200" : return "200 OK"
+		"201" : return "201 Created"
+		"202" : return "202 Accepted"
+		"203" : return "203 Non-Authoritative Information"
+		"204" : return "204 No Content"
+		"205" : return "205 Reset Content"
+
+		#	Redirection 3xx
+		"300" : return "300 Multiple Choices"
+		"301" : return "301 Moved Permanently" 
+		"302" : return "302 Found"
+		"303" : return "303 See Other"
+		"305" : return "305 Use Proxy"
+				   
+		#	Client Error 4xx
+		"400" : return "400 Bad Request"
+		"402" : return "402 Payment Required"
+		"403" : return "403 Forbidden"
+		"404" : return "404 Not Found"
+		"405" : return "405 Method Not Allowed"
+		"406" : return "406 Not Acceptable"
+		"408" : return "408 Request Timeout"
+		"409" : return "409 Conflict"
+				   
+		#	Server Error 5xx
+		"500" : return "500 Internal Server Error"
+		"501" : return "501 Not Implemented"
+		"502" : return "502 Bad Gateway"
+		"503" : return "503 Service Unavailable"
+		"504" : return "504 Gateway Timeout"
+		"505" : return "505 HTTP Version Not Supported"
+
+		
+		}
+		
     end
         
         
     initially(scode)
         code:=scode
-        write(code)
+		message:=handle_status_code(code)
+        
 end
 
 
@@ -220,7 +228,8 @@ class Request_Response(
     request_target,
     http_version,
     status,
-	response
+	response,
+	type
 	)
 	
 	method handle_request(form)
@@ -230,20 +239,30 @@ class Request_Response(
 			"GET" : return handle_GET()
 			"DELETE" : return handle_DELETE()
 			"PUT" : return handle_PUT()
-			default: return handle_status_codes("400")
+			default: { response:=handle_status("400")
+						return reponse.message}
 		}
 	end
 	
 	#Passes request_line_list (r) such as that from parse_request_line returns file information using stat()
 	method handle_HEAD()
-		write("*@*@*@*@*@*")
-		file_name:=request_target
+		write(request_target)
+		filename:=request_target
 		write(file_name)
-		write("*@*@*@*@*@*")
-		response:=[] # want response to be a string not a list
-		response := ""
-		st := stat(file_name) | return handle_status_codes("404")
-			response := response || http_version||" "||handle_status_codes("200")||"\r\nDate:"||&date||" "||&clock||"\r\nServer: Unicon Server"||"\r\nLast-Modified: "||ctime(st.mtime)||"\r\nETag: \""||hash(st.mtime)||"\"\r\nVary: Authorization,Accept\r\nAccept-Ranges: bytes\r\nContent-Length: "||st.size||"\r\nContent-Type: "||get_MIME(file_type)||"\r\nConnection: keep-alive"
+		filename?{
+			tab(find("."))
+			file_type:=tab(0)
+		}
+		write("FILETYPE: "||file_type)
+		type:=Mime(file_type)
+		st := stat(filename) | { response:=handle_status("404")
+						return reponse.message}
+			s:=handle_status(status)
+			write("---")
+			write(ximage(s))
+			write(s.message)
+			write("----")
+			response := response || http_version||" "||s.message||"\r\nDate:"||&date||" "||&clock||"\r\nServer: Unicon Server"||"\r\nLast-Modified: "||ctime(st.mtime)||"\r\nETag: \""||hash(st.mtime)||"\"\r\nVary: Authorization,Accept\r\nAccept-Ranges: bytes\r\nContent-Length: "||st.size||"\r\nContent-Type: "||type.MIME_type||"\r\nConnection: keep-alive"
 			write("***********")
 			write(response)
 			write("***********")
@@ -252,9 +271,10 @@ class Request_Response(
 	end
 
 	method handle_GET()
-		write("THIS IS MY TEST"||request_target)
-		if /r[2] then return handle_status_codes(400)
-		if r[2]=="" then{
+		
+		if /request_target then { response:=handle_status("400")
+						return reponse.message}
+		if request_target=="" then{
 			filename:="index.html"
 			#filename:="helloworld.jpg"
 		}else{
@@ -265,55 +285,53 @@ class Request_Response(
 			tab(find("."))
 			file_type:=tab(0)
 		}
-		write("FILETYPE: "||file_type)
+	
+		type:=Mime(file_type)
 		
 		if(file_type==".jpg"|".gif"|".jpeg"|".png"|".bmp") then{
 			fin := open(filename,"ru")| {
-				t:=http_version||" "||handle_status_codes("404")
+				t:=http_version||" "||{response:=handle_status("404"
+						return reponse.message}
 				return t
 			}
 			if p := stat(fin)then(
 				data := reads(fin, p.size)|fail
 			
-			)else(handle_status_codes("404"))
+			)else{ s:=handle_status("404")
+						response:=s.message
+						return reponse} 
 			
 			close(fin)
 		}else{
 			fin := open(filename)| {
-				t:=http_version||" "||handle_status_codes("404")
+				t:=http_version||" "||{response:=handle_status("404")
+						return reponse.message}
 				return t
 			}
 			if p := stat(fin)then(
 				data := reads(fin, p.size)|fail
 			
-			)else(handle_status_codes("404"))
+			)else{response:=handle_status("404")
+						return reponse.message}
 			
 			close(fin)
 		}
 		
 		st:=stat(filename)
+		s:=handle_status(status)
 		
-		#----------------------------------------------------------------------------------------------------------------------------------------------
-		#TEST STRING WITH CORRECT FORMAT
+		response:=http_version||" "||s.message||"\r\nDate:"||&date||" "||&clock||"\r\nServer: Unicon Server"||"\r\nLast-Modified: "||ctime(st.mtime)||"\r\nETag: \""||hash(st.mtime)||"\"\r\nVary: Authorization,Accept\r\nAccept-Ranges: bytes\r\nContent-Length: "||st.size||"\r\nContent-Type: "||type.MIME_type||"\r\nConnection: keep-alive"
+
+		response:=response||"\r\n\r\n"||data
 		
-		#t:="HTTP/1.1 200 OK\r\nDate: Mon, 27 Jul 2009 12:28:53 GMT\r\nServer: Apache/2.2.14 (Win32)\r\nLast-Modified: Wed, 22 Jul 2009 19:15:56 GMT\r\nETag: \"34aa387-d-1568eb00\"\r\nVary: Authorization,Accept\r\nAccept-Ranges: bytes\r\nContent-Length: 88\r\nContent-Type: text/html\r\nConnection: Closed\r\n\r\n"
-		response:=http_version||" "||handle_status_codes("200")||"\r\nDate:"||&date||" "||&clock||"\r\nServer: Unicon Server"||"\r\nLast-Modified: "||ctime(st.mtime)||"\r\nETag: \""||hash(st.mtime)||"\"\r\nVary: Authorization,Accept\r\nAccept-Ranges: bytes\r\nContent-Length: "||st.size||"\r\nContent-Type: "||get_MIME(file_type)||"\r\nConnection: keep-alive"
-		
-		#NOW WE NEED TO WORK ON POPULATING THIS STRING WITH ACTUAL INFORMATION IN THIS FORMAT
-		#-------------------------------------------------------------------------------------------------------------------------------------------------
-		
-		t:=t||"\r\n\r\n"||data
-		#Prints the img binary
-		#write("T")
-		#write(t)
 		
 		return response
 			
 	end
 
 	method handle_DELETE(r,hf)
-		if request_target==""|/request_target then{
-			return handle_status_codes(400)
+		if request_target==""|/request_target then{response:=handle_status("400")
+						return reponse.message}
 		}else{
 			filename:=request_target
 		}
@@ -328,9 +346,24 @@ class Request_Response(
 		i +:= *s
 		return i
 	end
-	
-	method get_MIME(file)
-		case file of{
+
+
+	initially(request)
+		form:=request.form
+		request_target:=request.request_target
+		http_version:=request.http_version
+		header_fields:=request.header_fields
+		body:=request.body
+		status:="200"
+		handle_request(form)
+		
+end
+
+class Mime(MIME_type,
+	type
+)
+	method get_MIME(type)
+		case type of{
 			".aac": return "audio/aac"	#AAC audio	
 			".abw": return "application/x-abiword"	#AbiWord document	
 			".arc": return "application/x-freearc"	#Archive document (multiple files embedded)	
@@ -410,57 +443,8 @@ class Request_Response(
 			default: return "Type Not Found"
 		}
 	end
-
-	method handle_status_codes(s)
-	case s of{
-		#	Informational 1xx
-		"100" : return "100 Continue"
-		"101" : return "101 Switching Protocols"
-
-		#	Successful 2xx
-		"200" : return "200 OK"
-		"201" : return "201 Created"
-		"202" : return "202 Accepted"
-		"203" : return "203 Non-Authoritative Information"
-		"204" : return "204 No Content"
-		"205" : return "205 Reset Content"
-
-		#	Redirection 3xx
-		"300" : return "300 Multiple Choices"
-		"301" : return "301 Moved Permanently" 
-		"302" : return "302 Found"
-		"303" : return "303 See Other"
-		"305" : return "305 Use Proxy"
-				   
-		#	Client Error 4xx
-		"400" : return "400 Bad Request"
-		"402" : return "402 Payment Required"
-		"403" : return "403 Forbidden"
-		"404" : return "404 Not Found"
-		"405" : return "405 Method Not Allowed"
-		"406" : return "406 Not Acceptable"
-		"408" : return "408 Request Timeout"
-		"409" : return "409 Conflict"
-				   
-		#	Server Error 5xx
-		"500" : return "500 Internal Server Error"
-		"501" : return "501 Not Implemented"
-		"502" : return "502 Bad Gateway"
-		"503" : return "503 Service Unavailable"
-		"504" : return "504 Gateway Timeout"
-		"505" : return "505 HTTP Version Not Supported"
-
-		
-		}
-	end
-
-
-	initially(request)
-		form:=request.form
-		request_target:=request.request_target
-		http_version:=request.http_version
-		header_fields:=request.header_fields
-		body:=request.body
-		status:="200"
-		handle_request(form)
+	
+	initially(in_type)
+		type:=in_type
+		MIME_type:=get_MIME(type)
 end
