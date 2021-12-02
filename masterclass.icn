@@ -9,20 +9,17 @@ class TCPSession(sock)
          if *select(sock) > 0 then {
             if msg := ready(sock) then {      # read whatever available on the socket
                msg := replace(msg, "\\r\\n" , "\r\n")
-			   write(image(sock), " : ", image(msg)) # write to screen
-#-----------------------------------------------------TESTING PARSING AND HEAD REQUEST--------------------------------------------            
+			   write(image(sock), " : ", image(msg)) # write to screen        
 		
 			 if msg == "" then next 
 			 if /msg then next
 			 req:=Request(msg)
 			 
-			req_resp:=Request_Response(req) 
-			
-			write(req_resp.response)
-			
-			writes(sock,req_resp.response)
-#--------------------------------------------------------------END TESTING-------------------------------------------------------
-               #writes(sock, image(msg))                     # send back to the client
+			 req_resp:=Request_Response(req) 
+						
+			 writes(sock,req_resp.response)                     # send back to the client
+
+               
                }
             else {  # We see activity on the socket but nothing to read, assume client has closed the socket
                write("closing socket: ", image(sock))
@@ -122,7 +119,7 @@ class Request(
              }
           move(2)
           body := tab(0) 
-        write("-------------------------------------------------------------------------------------")
+        
         }then {
             parse_request_line(request_line)
             return
@@ -163,63 +160,6 @@ class Request(
 		status:="200"
 		parse_request(msg)
 end
-class handle_status(code,
-	message
-	)
-	
-    method handle_status_code(code
-	)
-        
-        case code of{
-		#	Informational 1xx
-		"100" : return "100 Continue"
-		"101" : return "101 Switching Protocols"
-
-		#	Successful 2xx
-		"200" : return "200 OK"
-		"201" : return "201 Created"
-		"202" : return "202 Accepted"
-		"203" : return "203 Non-Authoritative Information"
-		"204" : return "204 No Content"
-		"205" : return "205 Reset Content"
-
-		#	Redirection 3xx
-		"300" : return "300 Multiple Choices"
-		"301" : return "301 Moved Permanently" 
-		"302" : return "302 Found"
-		"303" : return "303 See Other"
-		"305" : return "305 Use Proxy"
-				   
-		#	Client Error 4xx
-		"400" : return "400 Bad Request"
-		"402" : return "402 Payment Required"
-		"403" : return "403 Forbidden"
-		"404" : return "404 Not Found"
-		"405" : return "405 Method Not Allowed"
-		"406" : return "406 Not Acceptable"
-		"408" : return "408 Request Timeout"
-		"409" : return "409 Conflict"
-				   
-		#	Server Error 5xx
-		"500" : return "500 Internal Server Error"
-		"501" : return "501 Not Implemented"
-		"502" : return "502 Bad Gateway"
-		"503" : return "503 Service Unavailable"
-		"504" : return "504 Gateway Timeout"
-		"505" : return "505 HTTP Version Not Supported"
-
-		
-		}
-		
-    end
-        
-        
-    initially(scode)
-        code:=scode
-		message:=handle_status_code(code)
-        
-end
-
 
 class Request_Response(
     header_fields,
@@ -246,26 +186,16 @@ class Request_Response(
 	
 	#Passes request_line_list (r) such as that from parse_request_line returns file information using stat()
 	method handle_HEAD()
-		write(request_target)
 		filename:=request_target
-		write(file_name)
 		filename?{
 			tab(find("."))
 			file_type:=tab(0)
 		}
-		write("FILETYPE: "||file_type)
 		type:=Mime(file_type)
 		st := stat(filename) | { response:=handle_status("404")
 						return reponse.message}
 			s:=handle_status(status)
-			write("---")
-			write(ximage(s))
-			write(s.message)
-			write("----")
 			response := response || http_version||" "||s.message||"\r\nDate:"||&date||" "||&clock||"\r\nServer: Unicon Server"||"\r\nLast-Modified: "||ctime(st.mtime)||"\r\nETag: \""||hash(st.mtime)||"\"\r\nVary: Authorization,Accept\r\nAccept-Ranges: bytes\r\nContent-Length: "||st.size||"\r\nContent-Type: "||type.MIME_type||"\r\nConnection: keep-alive"
-			write("***********")
-			write(response)
-			write("***********")
 			return response
 			
 	end
@@ -329,7 +259,7 @@ class Request_Response(
 			
 	end
 
-	method handle_DELETE(r,hf)
+	method handle_DELETE()
 		if request_target==""|/request_target then{response:=handle_status("400")
 						return reponse.message}
 		}else{
@@ -337,7 +267,53 @@ class Request_Response(
 		}
 		
 		remove(filename)
+		{response:=handle_status("200")
+						return reponse.message}
 	end
+	
+	method handle_PUT()
+
+    if(request_target==""|/request_target) then{
+        {response:=handle_status("400")
+						return reponse.message}
+    }else{
+        filename:=request_target
+
+        if stat(filename) then{
+        #check if request_target exists in directory (204)
+            f:= open(filename, "w")
+            write(f, body)
+            close(f)
+			{response:=handle_status("202")
+						return reponse.message}
+			
+        }else{
+        #if request_target doesn't exists in directory (201)
+            f:= open(filename, "w")
+            write(f, body)
+            close(f)
+			{response:=handle_status("201")
+						return reponse.message}
+        }
+    }
+end
+
+procedure handle_POST()
+	if(request_target==""|/request_target then{
+		{response:=handle_status("400")
+						return reponse.message}
+	}else{
+		filename:=request_target
+			
+		if !stat(filename) then{
+			f:= open(filename, "w")
+			write(f, body)
+			close(f)
+			{response:=handle_status("201")
+						return reponse.message}
+		}
+	}	
+end
 	
 	method hash(s)
 		local i := 0
@@ -447,4 +423,61 @@ class Mime(MIME_type,
 	initially(in_type)
 		type:=in_type
 		MIME_type:=get_MIME(type)
+end
+
+class handle_status(code,
+	message
+	)
+	
+    method handle_status_code(code
+	)
+        
+        case code of{
+		#	Informational 1xx
+		"100" : return "100 Continue"
+		"101" : return "101 Switching Protocols"
+
+		#	Successful 2xx
+		"200" : return "200 OK"
+		"201" : return "201 Created"
+		"202" : return "202 Accepted"
+		"203" : return "203 Non-Authoritative Information"
+		"204" : return "204 No Content"
+		"205" : return "205 Reset Content"
+
+		#	Redirection 3xx
+		"300" : return "300 Multiple Choices"
+		"301" : return "301 Moved Permanently" 
+		"302" : return "302 Found"
+		"303" : return "303 See Other"
+		"305" : return "305 Use Proxy"
+				   
+		#	Client Error 4xx
+		"400" : return "400 Bad Request"
+		"402" : return "402 Payment Required"
+		"403" : return "403 Forbidden"
+		"404" : return "404 Not Found"
+		"405" : return "405 Method Not Allowed"
+		"406" : return "406 Not Acceptable"
+		"408" : return "408 Request Timeout"
+		"409" : return "409 Conflict"
+				   
+		#	Server Error 5xx
+		"500" : return "500 Internal Server Error"
+		"501" : return "501 Not Implemented"
+		"502" : return "502 Bad Gateway"
+		"503" : return "503 Service Unavailable"
+		"504" : return "504 Gateway Timeout"
+		"505" : return "505 HTTP Version Not Supported"
+
+		
+		}
+		
+    end
+        
+        
+    initially(scode)
+        code:=scode
+		message:=handle_status_code(code)
+        
 end
