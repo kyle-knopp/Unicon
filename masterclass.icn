@@ -220,7 +220,7 @@ class Request_Response(
 		
 		if(file_type==".jpg"|".gif"|".jpeg"|".png"|".bmp") then{
 			fin := open(filename,"ru")| {
-				t:=http_version||" "||{response:=handle_status("404"
+				t:=http_version||" "||{response:=handle_status("404")
 						return reponse.message}
 				return t
 			}
@@ -262,7 +262,7 @@ class Request_Response(
 	method handle_DELETE()
 		if request_target==""|/request_target then{response:=handle_status("400")
 						return reponse.message}
-		}else{
+		else{
 			filename:=request_target
 		}
 		
@@ -298,11 +298,10 @@ class Request_Response(
     }
 end
 
-procedure handle_POST()
-	if(request_target==""|/request_target then{
-		{response:=handle_status("400")
+method handle_POST()
+	if(request_target==""|/request_target) then{response:=handle_status("400")
 						return reponse.message}
-	}else{
+	else{
 		filename:=request_target
 			
 		if !stat(filename) then{
