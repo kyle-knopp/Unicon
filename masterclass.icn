@@ -331,6 +331,7 @@ end
 		body:=request.body
 		status:="200"
 		handle_request(form)
+		response:=""
 		
 end
 
