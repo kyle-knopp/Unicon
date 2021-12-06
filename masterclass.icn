@@ -186,6 +186,7 @@ class Request_Response(
 	
 	#Passes request_line_list (r) such as that from parse_request_line returns file information using stat()
 	method handle_HEAD()
+	write("inside head")
 		filename:=request_target
 		filename?{
 			tab(find("."))
@@ -195,7 +196,7 @@ class Request_Response(
 		st := stat(filename) | { response:=handle_status("404")
 						return response.message}
 			s:=handle_status(status)
-			response := response || http_version||" "||s.message||"\r\nDate:"||&date||" "||&clock||"\r\nServer: Unicon Server"||"\r\nLast-Modified: "||ctime(st.mtime)||"\r\nETag: \""||hash(st.mtime)||"\"\r\nVary: Authorization,Accept\r\nAccept-Ranges: bytes\r\nContent-Length: "||st.size||"\r\nContent-Type: "||type.MIME_type||"\r\nConnection: keep-alive"
+			response := http_version||" "||s.message||"\r\nDate:"||&date||" "||&clock||"\r\nServer: Unicon Server"||"\r\nLast-Modified: "||ctime(st.mtime)||"\r\nETag: \""||hash(st.mtime)||"\"\r\nVary: Authorization,Accept\r\nAccept-Ranges: bytes\r\nContent-Length: "||st.size||"\r\nContent-Type: "||type.MIME_type||"\r\nConnection: keep-alive"
 			return response
 			
 	end
@@ -331,7 +332,7 @@ end
 		body:=request.body
 		status:="200"
 		handle_request(form)
-		response:=""
+		
 		
 end
 
