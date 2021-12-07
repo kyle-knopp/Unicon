@@ -98,7 +98,7 @@ class Request(
     )
     method parse_request(msg)
         if /msg then {
-            status:=handle_status("400")
+            status:=HandleStatus("400")
             return status.message
         }
 		
@@ -109,7 +109,7 @@ class Request(
           move(2)
           line := tab(find("\r\n"))
           if /line then {
-			s:=handle_status("400")
+			s:=HandleStatus("400")
 			return s.message
 			}
           while line ~== "" do {
@@ -125,7 +125,7 @@ class Request(
             return
         }
 		status:="400"
-        response:=handle_status(status)
+        response:=HandleStatus(status)
 		return response.message
     end
     
@@ -179,7 +179,7 @@ class Request_Response(
 			"GET" : return handle_GET()
 			"DELETE" : return handle_DELETE()
 			"PUT" : return handle_PUT()
-			default: { response:=handle_status("400")
+			default: { response:=HandleStatus("400")
 						return response.message}
 		}
 	end
@@ -193,9 +193,9 @@ class Request_Response(
 			file_type:=tab(0)
 		}
 		type:=Mime(file_type)
-		st := stat(filename) | { response:=handle_status("404")
+		st := stat(filename) | { response:=HandleStatus("404")
 						return response.message}
-			s:=handle_status(status)
+			s:=HandleStatus(status)
 			response := http_version||" "||s.message||"\r\nDate:"||&date||" "||&clock||"\r\nServer: Unicon Server"||"\r\nLast-Modified: "||ctime(st.mtime)||"\r\nETag: \""||hash(st.mtime)||"\"\r\nVary: Authorization,Accept\r\nAccept-Ranges: bytes\r\nContent-Length: "||st.size||"\r\nContent-Type: "||type.MIME_type||"\r\nConnection: keep-alive"
 			return response
 			
@@ -203,7 +203,7 @@ class Request_Response(
 
 	method handle_GET()
 		
-		if /request_target then { response:=handle_status("400")
+		if /request_target then { response:=HandleStatus("400")
 						return response.message}
 		if request_target=="" then{
 			filename:="index.html"
@@ -221,35 +221,35 @@ class Request_Response(
 		
 		if(file_type==".jpg"|".gif"|".jpeg"|".png"|".bmp") then{
 			fin := open(filename,"ru")| {
-				t:=http_version||" "||{response:=handle_status("404")
+				t:=http_version||" "||{response:=HandleStatus("404")
 						return response.message}
 				return t
 			}
 			if p := stat(fin)then(
 				data := reads(fin, p.size)|fail
 			
-			)else{ s:=handle_status("404")
+			)else{ s:=HandleStatus("404")
 						response:=s.message
 						return response} 
 			
 			close(fin)
 		}else{
 			fin := open(filename)| {
-				t:=http_version||" "||{response:=handle_status("404")
+				t:=http_version||" "||{response:=HandleStatus("404")
 						return response.message}
 				return t
 			}
 			if p := stat(fin)then(
 				data := reads(fin, p.size)|fail
 			
-			)else{response:=handle_status("404")
+			)else{response:=HandleStatus("404")
 						return response.message}
 			
 			close(fin)
 		}
 		
 		st:=stat(filename)
-		s:=handle_status(status)
+		s:=HandleStatus(status)
 		
 		response:=http_version||" "||s.message||"\r\nDate:"||&date||" "||&clock||"\r\nServer: Unicon Server"||"\r\nLast-Modified: "||ctime(st.mtime)||"\r\nETag: \""||hash(st.mtime)||"\"\r\nVary: Authorization,Accept\r\nAccept-Ranges: bytes\r\nContent-Length: "||st.size||"\r\nContent-Type: "||type.MIME_type||"\r\nConnection: keep-alive"
 
@@ -261,21 +261,21 @@ class Request_Response(
 	end
 
 	method handle_DELETE()
-		if request_target==""|/request_target then{response:=handle_status("400")
+		if request_target==""|/request_target then{response:=HandleStatus("400")
 						return response.message}
 		else{
 			filename:=request_target
 		}
 		
 		remove(filename)
-		{response:=handle_status("200")
+		{response:=HandleStatus("200")
 						return response.message}
 	end
 	
 	method handle_PUT()
 
     if(request_target==""|/request_target) then{
-        {response:=handle_status("400")
+        {response:=HandleStatus("400")
 						return response.message}
     }else{
         filename:=request_target
@@ -285,7 +285,7 @@ class Request_Response(
             f:= open(filename, "w")
             write(f, body)
             close(f)
-			{response:=handle_status("202")
+			{response:=HandleStatus("202")
 						return response.message}
 			
         }else{
@@ -293,14 +293,14 @@ class Request_Response(
             f:= open(filename, "w")
             write(f, body)
             close(f)
-			{response:=handle_status("201")
+			{response:=HandleStatus("201")
 						return response.message}
         }
     }
 end
 
 method handle_POST()
-	if(request_target==""|/request_target) then{response:=handle_status("400")
+	if(request_target==""|/request_target) then{response:=HandleStatus("400")
 						return response.message}
 	else{
 		filename:=request_target
@@ -309,7 +309,7 @@ method handle_POST()
 			f:= open(filename, "w")
 			write(f, body)
 			close(f)
-			{response:=handle_status("201")
+			{response:=HandleStatus("201")
 						return response.message}
 		}
 	}	
@@ -426,7 +426,7 @@ class Mime(MIME_type,
 		MIME_type:=get_MIME(type)
 end
 
-class handle_status(code,
+class HandleStatus(code,
 	message
 	)
 	
