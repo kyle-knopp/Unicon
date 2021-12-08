@@ -98,8 +98,9 @@ class Request(
     )
     method parse_request(msg)
         if /msg then {
-            status:=HandleStatus("400")
-            return status.message
+            status:=handle_status("400")
+            response:=status.message
+			return response
         }
 		
 
@@ -109,8 +110,9 @@ class Request(
           move(2)
           line := tab(find("\r\n"))
           if /line then {
-			s:=HandleStatus("400")
-			return s.message
+			s:=handle_status("400")
+			response:=s.message
+			return response
 			}
           while line ~== "" do {
              put(header_fields, line)
@@ -124,9 +126,10 @@ class Request(
             parse_request_line(request_line)
             return
         }
-		status:="400"
-        response:=HandleStatus(status)
-		return response.message
+		
+        s:=handle_status("400")
+		response:=s.message
+		return response
     end
     
     method parse_request_line(request_line)
@@ -179,8 +182,9 @@ class Request_Response(
 			"GET" : return handle_GET()
 			"DELETE" : return handle_DELETE()
 			"PUT" : return handle_PUT()
-			default: { response:=HandleStatus("400")
-						return response.message}
+			default: {  s:=handle_status("400")
+						response:=s.message
+						return response}
 		}
 	end
 	
@@ -193,9 +197,10 @@ class Request_Response(
 			file_type:=tab(0)
 		}
 		type:=Mime(file_type)
-		st := stat(filename) | { response:=HandleStatus("404")
-						return response.message}
-			s:=HandleStatus(status)
+		st := stat(filename) | { s:=handle_status("404")
+								response:=s.message
+								return response}
+			s:=handle_status(status)
 			response := http_version||" "||s.message||"\r\nDate:"||&date||" "||&clock||"\r\nServer: Unicon Server"||"\r\nLast-Modified: "||ctime(st.mtime)||"\r\nETag: \""||hash(st.mtime)||"\"\r\nVary: Authorization,Accept\r\nAccept-Ranges: bytes\r\nContent-Length: "||st.size||"\r\nContent-Type: "||type.MIME_type||"\r\nConnection: keep-alive"
 			return response
 			
@@ -203,11 +208,13 @@ class Request_Response(
 
 	method handle_GET()
 		
-		if /request_target then { response:=HandleStatus("400")
-						return response.message}
+		if /request_target then { s:=handle_status("400")
+								response:=s.message
+								return response}
 		if request_target=="" then{
 			filename:="index.html"
 			#filename:="helloworld.jpg"
+			#filename:="matt_index.html"
 		}else{
 			filename:=request_target
 		}
@@ -221,35 +228,39 @@ class Request_Response(
 		
 		if(file_type==".jpg"|".gif"|".jpeg"|".png"|".bmp") then{
 			fin := open(filename,"ru")| {
-				t:=http_version||" "||{response:=HandleStatus("404")
-						return response.message}
+				s:=handle_status("404")
+				response:=s.message
+				t:=http_version||" "|| response
 				return t
 			}
 			if p := stat(fin)then(
 				data := reads(fin, p.size)|fail
 			
-			)else{ s:=HandleStatus("404")
+			)else{ s:=handle_status("404")
 						response:=s.message
 						return response} 
 			
 			close(fin)
 		}else{
 			fin := open(filename)| {
-				t:=http_version||" "||{response:=HandleStatus("404")
-						return response.message}
+				s:=handle_status("404")
+				response:=s.message
+				t:=http_version||" "|| response
 				return t
 			}
 			if p := stat(fin)then(
 				data := reads(fin, p.size)|fail
 			
-			)else{response:=HandleStatus("404")
-						return response.message}
+			)else{s:=handle_status("404")
+				response:=s.message
+				t:=http_version||" "|| response
+				return t}
 			
 			close(fin)
 		}
 		
 		st:=stat(filename)
-		s:=HandleStatus(status)
+		s:=handle_status(status)
 		
 		response:=http_version||" "||s.message||"\r\nDate:"||&date||" "||&clock||"\r\nServer: Unicon Server"||"\r\nLast-Modified: "||ctime(st.mtime)||"\r\nETag: \""||hash(st.mtime)||"\"\r\nVary: Authorization,Accept\r\nAccept-Ranges: bytes\r\nContent-Length: "||st.size||"\r\nContent-Type: "||type.MIME_type||"\r\nConnection: keep-alive"
 
@@ -261,22 +272,25 @@ class Request_Response(
 	end
 
 	method handle_DELETE()
-		if request_target==""|/request_target then{response:=HandleStatus("400")
-						return response.message}
+		if request_target==""|/request_target then{ s:=handle_status("400")
+													response:=s.message
+													return response}
 		else{
 			filename:=request_target
 		}
 		
 		remove(filename)
-		{response:=HandleStatus("200")
-						return response.message}
+		{ s:=handle_status("200")
+			response:=s.message
+			return response}
 	end
 	
 	method handle_PUT()
 
     if(request_target==""|/request_target) then{
-        {response:=HandleStatus("400")
-						return response.message}
+        { s:=handle_status("400")
+		  response:=s.message
+		  return response}
     }else{
         filename:=request_target
 
@@ -285,23 +299,26 @@ class Request_Response(
             f:= open(filename, "w")
             write(f, body)
             close(f)
-			{response:=HandleStatus("202")
-						return response.message}
+			{ s:=handle_status("200")
+				response:=s.message
+				return response}
 			
         }else{
         #if request_target doesn't exists in directory (201)
             f:= open(filename, "w")
             write(f, body)
             close(f)
-			{response:=HandleStatus("201")
-						return response.message}
+			{ s:=handle_status("201")
+				response:=s.message
+				return response}
         }
     }
 end
 
 method handle_POST()
-	if(request_target==""|/request_target) then{response:=HandleStatus("400")
-						return response.message}
+	if(request_target==""|/request_target) then{ s:=handle_status("400")
+								response:=s.message
+								return response}
 	else{
 		filename:=request_target
 			
@@ -309,8 +326,9 @@ method handle_POST()
 			f:= open(filename, "w")
 			write(f, body)
 			close(f)
-			{response:=HandleStatus("201")
-						return response.message}
+			{ s:=handle_status("201")
+				response:=s.message
+				return response}
 		}
 	}	
 end
@@ -426,7 +444,7 @@ class Mime(MIME_type,
 		MIME_type:=get_MIME(type)
 end
 
-class HandleStatus(code,
+class handle_status(code,
 	message
 	)
 	
