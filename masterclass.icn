@@ -215,6 +215,7 @@ class Request_Response(
 			"GET" : return handle_GET()
 			"DELETE" : return handle_DELETE()
 			"PUT" : return handle_PUT()
+			"POST": return handle_POST()
 			default: {  s:=handle_status("400")
 						response:=s.message
 						return response}
